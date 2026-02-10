@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Centralised OpenVPN Architecture — Network Diagram</title>
+  <meta name="description" content="Interactive network architecture diagram for a centralised OpenVPN solution with split tunnelling and global remote access." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0e1a; font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; }
+    #root { min-height: 100vh; }
+  </style>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState } = React;
+
+    const colors = {
+      bg: "#0a0e1a",
+      bgSubtle: "#111827",
+      panel: "#1a2035",
+      panelBorder: "#2a3555",
+      accent: "#00d4aa",
+      accentDim: "#00d4aa33",
+      orange: "#ff8c42",
+      orangeDim: "#ff8c4233",
+      blue: "#4a9eff",
+      blueDim: "#4a9eff33",
+      purple: "#a78bfa",
+      purpleDim: "#a78bfa33",
+      red: "#f87171",
+      redDim: "#f8717133",
+      text: "#e2e8f0",
+      textMuted: "#8892a8",
+      textDim: "#4a5568",
+      tunnel: "#00d4aa",
+      internet: "#ff8c42",
+      line: "#2a3555",
+    };
+
+    const Icon = ({ type, x, y, size = 28, color = colors.text }) => {
+      const icons = {
+        laptop: (
+          <g transform={`translate(${x - size/2}, ${y - size/2})`}>
+            <rect x={3} y={2} width={size - 6} height={size * 0.6} rx={2} fill="none" stroke={color} strokeWidth={1.5} />
+            <line x1={1} y1={size * 0.75} x2={size - 1} y2={size * 0.75} stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+            <rect x={size * 0.3} y={size * 0.25} width={size * 0.4} height={size * 0.2} rx={1} fill={color} opacity={0.3} />
+          </g>
+        ),
+        server: (
+          <g transform={`translate(${x - size/2}, ${y - size/2})`}>
+            <rect x={2} y={1} width={size - 4} height={size * 0.3} rx={2} fill="none" stroke={color} strokeWidth={1.5} />
+            <rect x={2} y={size * 0.35} width={size - 4} height={size * 0.3} rx={2} fill="none" stroke={color} strokeWidth={1.5} />
+            <rect x={2} y={size * 0.7} width={size - 4} height={size * 0.3} rx={2} fill="none" stroke={color} strokeWidth={1.5} />
+            <circle cx={size * 0.75} cy={size * 0.15} r={2} fill={color} opacity={0.6} />
+            <circle cx={size * 0.75} cy={size * 0.5} r={2} fill={color} opacity={0.6} />
+            <circle cx={size * 0.75} cy={size * 0.85} r={2} fill={color} opacity={0.6} />
+          </g>
+        ),
+        shield: (
+          <g transform={`translate(${x - size/2}, ${y - size/2})`}>
+            <path d={`M${size/2} 2 L${size-3} ${size*0.3} L${size-3} ${size*0.6} C${size-3} ${size*0.85} ${size/2} ${size-2} ${size/2} ${size-2} C${size/2} ${size-2} 3 ${size*0.85} 3 ${size*0.6} L3 ${size*0.3} Z`} fill="none" stroke={color} strokeWidth={1.5} />
+            <path d={`M${size*0.35} ${size*0.5} L${size*0.45} ${size*0.62} L${size*0.65} ${size*0.38}`} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+          </g>
+        ),
+        cloud: (
+          <g transform={`translate(${x - size/2}, ${y - size/2})`}>
+            <path d={`M${size*0.25} ${size*0.7} C${size*0.08} ${size*0.7} ${size*0.08} ${size*0.45} ${size*0.22} ${size*0.42} C${size*0.18} ${size*0.2} ${size*0.42} ${size*0.15} ${size*0.5} ${size*0.3} C${size*0.55} ${size*0.15} ${size*0.8} ${size*0.2} ${size*0.78} ${size*0.42} C${size*0.92} ${size*0.42} ${size*0.95} ${size*0.7} ${size*0.75} ${size*0.7} Z`} fill="none" stroke={color} strokeWidth={1.5} />
+          </g>
+        ),
+        globe: (
+          <g transform={`translate(${x - size/2}, ${y - size/2})`}>
+            <circle cx={size/2} cy={size/2} r={size/2 - 2} fill="none" stroke={color} strokeWidth={1.5} />
+            <ellipse cx={size/2} cy={size/2} rx={size*0.22} ry={size/2 - 2} fill="none" stroke={color} strokeWidth={1} opacity={0.6} />
+            <line x1={2} y1={size/2} x2={size-2} y2={size/2} stroke={color} strokeWidth={1} opacity={0.6} />
+          </g>
+        ),
+        network: (
+          <g transform={`translate(${x - size/2}, ${y - size/2})`}>
+            <circle cx={size/2} cy={size*0.25} r={4} fill="none" stroke={color} strokeWidth={1.5} />
+            <circle cx={size*0.2} cy={size*0.75} r={4} fill="none" stroke={color} strokeWidth={1.5} />
+            <circle cx={size*0.8} cy={size*0.75} r={4} fill="none" stroke={color} strokeWidth={1.5} />
+            <line x1={size/2} y1={size*0.35} x2={size*0.2} y2={size*0.65} stroke={color} strokeWidth={1.2} />
+            <line x1={size/2} y1={size*0.35} x2={size*0.8} y2={size*0.65} stroke={color} strokeWidth={1.2} />
+          </g>
+        ),
+        lock: (
+          <g transform={`translate(${x - size/2}, ${y - size/2})`}>
+            <rect x={size*0.2} y={size*0.45} width={size*0.6} height={size*0.45} rx={2} fill="none" stroke={color} strokeWidth={1.5} />
+            <path d={`M${size*0.3} ${size*0.45} V${size*0.3} C${size*0.3} ${size*0.1} ${size*0.7} ${size*0.1} ${size*0.7} ${size*0.3} V${size*0.45}`} fill="none" stroke={color} strokeWidth={1.5} />
+            <circle cx={size/2} cy={size*0.65} r={2} fill={color} />
+          </g>
+        ),
+      };
+      return icons[type] || null;
+    };
+
+    const AnimatedDash = ({ d, color, delay = 0, reverse = false }) => (
+      <g>
+        <path d={d} fill="none" stroke={color} strokeWidth={1} opacity={0.15} />
+        <path d={d} fill="none" stroke={color} strokeWidth={2} strokeDasharray="6 8" opacity={0.7}>
+          <animate
+            attributeName="stroke-dashoffset"
+            from={reverse ? "-100" : "100"}
+            to={reverse ? "100" : "-100"}
+            dur="3s"
+            begin={`${delay}s`}
+            repeatCount="indefinite"
+          />
+        </path>
+      </g>
+    );
+
+    const NodeBox = ({ x, y, w, h, label, sublabel, icon, color, borderColor, children, glow = false }) => (
+      <g>
+        {glow && <rect x={x-2} y={y-2} width={w+4} height={h+4} rx={10} fill={color} opacity={0.08} />}
+        <rect x={x} y={y} width={w} height={h} rx={8} fill={colors.panel} stroke={borderColor || color} strokeWidth={1.5} opacity={0.95} />
+        {icon && <Icon type={icon} x={x + 24} y={y + 24} size={22} color={color} />}
+        <text x={x + (icon ? 44 : 16)} y={y + 22} fill={colors.text} fontSize={12} fontWeight={600} fontFamily="'JetBrains Mono', 'SF Mono', monospace">{label}</text>
+        {sublabel && <text x={x + (icon ? 44 : 16)} y={y + 37} fill={colors.textMuted} fontSize={9.5} fontFamily="'JetBrains Mono', 'SF Mono', monospace">{sublabel}</text>}
+        {children}
+      </g>
+    );
+
+    const Badge = ({ x, y, text, color }) => (
+      <g>
+        <rect x={x} y={y} width={text.length * 6.5 + 14} height={18} rx={9} fill={color} opacity={0.15} stroke={color} strokeWidth={0.5} />
+        <text x={x + 7} y={y + 12.5} fill={color} fontSize={9} fontWeight={500} fontFamily="'JetBrains Mono', 'SF Mono', monospace">{text}</text>
+      </g>
+    );
+
+    function OpenVPNArchitecture() {
+      const w = 1100;
+      const h = 780;
+
+      return (
+        <div style={{ background: colors.bg, minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 16px", fontFamily: "'JetBrains Mono', 'SF Mono', monospace" }}>
+          <div style={{ maxWidth: 1140, width: "100%" }}>
+            <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
+              <div>
+                <div style={{ color: colors.accent, fontSize: 10, letterSpacing: 3, textTransform: "uppercase", marginBottom: 4 }}>Network Architecture</div>
+                <h1 style={{ color: colors.text, fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: -0.5 }}>Centralised OpenVPN Solution</h1>
+                <p style={{ color: colors.textMuted, fontSize: 11, margin: "4px 0 0" }}>Split Tunnel — Global Remote Access — Hosted DC/Cloud</p>
+              </div>
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                {[
+                  { color: colors.tunnel, label: "VPN Tunnel (Encrypted)" },
+                  { color: colors.internet, label: "Local Internet Breakout" },
+                  { color: colors.blue, label: "Corporate Traffic" },
+                ].map((l, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ width: 20, height: 3, background: l.color, borderRadius: 2 }} />
+                    <span style={{ color: colors.textMuted, fontSize: 9.5 }}>{l.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <svg viewBox={`0 0 ${w} ${h}`} width="100%" style={{ background: colors.bgSubtle, borderRadius: 12, border: `1px solid ${colors.panelBorder}` }}>
+              <defs>
+                <filter id="glow">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                </filter>
+                <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                  <path d="M0,0 L8,3 L0,6" fill={colors.tunnel} opacity={0.7} />
+                </marker>
+                <marker id="arrowOrange" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                  <path d="M0,0 L8,3 L0,6" fill={colors.orange} opacity={0.7} />
+                </marker>
+                <marker id="arrowBlue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                  <path d="M0,0 L8,3 L0,6" fill={colors.blue} opacity={0.7} />
+                </marker>
+              </defs>
+
+              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke={colors.line} strokeWidth={0.3} opacity={0.3} />
+              </pattern>
+              <rect width={w} height={h} fill="url(#grid)" />
+
+              {/* ZONE: Remote Users */}
+              <rect x={20} y={20} width={260} height={h - 40} rx={12} fill={colors.purpleDim} stroke={colors.purple} strokeWidth={0.5} strokeDasharray="4 4" opacity={0.4} />
+              <text x={40} y={50} fill={colors.purple} fontSize={11} fontWeight={700} letterSpacing={2} opacity={0.8}>REMOTE USERS</text>
+              <text x={40} y={64} fill={colors.textMuted} fontSize={8.5}>OpenVPN Client Endpoints</text>
+
+              {[
+                { y: 100, region: "EMEA", city: "London, UK", ip: "10.8.0.x/24" },
+                { y: 220, region: "APAC", city: "Singapore", ip: "10.8.1.x/24" },
+                { y: 340, region: "AMER", city: "New York, US", ip: "10.8.2.x/24" },
+                { y: 460, region: "EMEA", city: "Berlin, DE", ip: "10.8.3.x/24" },
+              ].map((user, i) => (
+                <g key={i}>
+                  <NodeBox x={40} y={user.y} w={220} h={85} label={`User — ${user.region}`} sublabel={user.city} icon="laptop" color={colors.purple} borderColor={colors.panelBorder}>
+                    <Badge x={55} y={user.y + 48} text="OpenVPN Client" color={colors.purple} />
+                    <text x={55} y={user.y + 76} fill={colors.textDim} fontSize={8.5}>Tunnel IP: {user.ip}</text>
+                  </NodeBox>
+                </g>
+              ))}
+
+              <NodeBox x={40} y={590} w={220} h={70} label="Split Tunnel Config" icon="network" color={colors.orange} borderColor={colors.panelBorder}>
+                <text x={56} y={632} fill={colors.textMuted} fontSize={8.5}>→ Corporate → VPN Tunnel</text>
+                <text x={56} y={644} fill={colors.textMuted} fontSize={8.5}>→ Internet → Local Breakout</text>
+              </NodeBox>
+
+              {[145, 265, 385, 505].map((y, i) => (
+                <g key={`breakout-${i}`}>
+                  <AnimatedDash d={`M 42 ${y} L 18 ${y}`} color={colors.orange} delay={i * 0.3} />
+                  <text x={5} y={y - 8} fill={colors.orange} fontSize={7.5} opacity={0.7} transform={`rotate(-90, 8, ${y})`}>WEB</text>
+                </g>
+              ))}
+
+              {/* ZONE: Internet Transit */}
+              <rect x={305} y={70} width={70} height={h - 130} rx={6} fill="none" stroke={colors.orange} strokeWidth={0.5} strokeDasharray="3 3" opacity={0.3} />
+              <Icon type="globe" x={340} y={55} size={20} color={colors.orange} />
+              <text x={340} y={96} fill={colors.orange} fontSize={9} fontWeight={600} textAnchor="middle" opacity={0.7}>PUBLIC</text>
+              <text x={340} y={108} fill={colors.orange} fontSize={9} fontWeight={600} textAnchor="middle" opacity={0.7}>INTERNET</text>
+
+              {[145, 265, 385, 505].map((y, i) => (
+                <g key={`tunnel-${i}`}>
+                  <AnimatedDash d={`M 260 ${y} C 290 ${y}, 300 ${y}, 310 ${y}`} color={colors.tunnel} delay={i * 0.4} />
+                  <AnimatedDash d={`M 370 ${y} C 400 ${y < 300 ? y + 20 : y - 20}, 420 ${330}, 460 ${330}`} color={colors.tunnel} delay={i * 0.4 + 0.2} />
+                </g>
+              ))}
+
+              <g transform="translate(336, 160) rotate(-90)">
+                <rect x={-2} y={-10} width={60} height={16} rx={3} fill={colors.tunnel} opacity={0.15} />
+                <text x={8} y={2} fill={colors.tunnel} fontSize={8} fontWeight={600}>TLS 1.3</text>
+              </g>
+
+              {/* ZONE: Hosted DC / Cloud */}
+              <rect x={420} y={20} width={660} height={h - 40} rx={12} fill={colors.accentDim} stroke={colors.accent} strokeWidth={0.5} strokeDasharray="4 4" opacity={0.3} />
+              <text x={440} y={50} fill={colors.accent} fontSize={11} fontWeight={700} letterSpacing={2} opacity={0.8}>HOSTED DC / CLOUD</text>
+              <text x={440} y={64} fill={colors.textMuted} fontSize={8.5}>Central VPN Hub — Private Infrastructure</text>
+
+              <NodeBox x={460} y={250} w={230} h={160} label="OpenVPN Server" sublabel="Central Concentrator VM" icon="shield" color={colors.accent} borderColor={colors.accent} glow>
+                <Badge x={476} y={305} text="UDP/1194" color={colors.accent} />
+                <Badge x={560} y={305} text="TCP/443" color={colors.accent} />
+                <text x={476} y={340} fill={colors.textMuted} fontSize={8.5}>• Certificate Auth (Easy-RSA)</text>
+                <text x={476} y={354} fill={colors.textMuted} fontSize={8.5}>• MFA / TOTP Integration</text>
+                <text x={476} y={368} fill={colors.textMuted} fontSize={8.5}>• Push Routes (Split Tunnel)</text>
+                <text x={476} y={382} fill={colors.textMuted} fontSize={8.5}>• CCD per-client configs</text>
+                <text x={476} y={396} fill={colors.textDim} fontSize={8}>Subnet: 10.8.0.0/16</text>
+              </NodeBox>
+
+              <NodeBox x={460} y={90} w={230} h={55} label="Firewall / ACL" sublabel="iptables / nftables" icon="lock" color={colors.red} borderColor={colors.panelBorder}>
+                <Badge x={476} y={125} text="Stateful Inspection" color={colors.red} />
+              </NodeBox>
+
+              <AnimatedDash d="M 575 145 L 575 250" color={colors.accent} delay={0} />
+
+              {/* Corporate Network */}
+              <rect x={730} y={85} width={330} height={320} rx={8} fill={colors.blueDim} stroke={colors.blue} strokeWidth={0.5} opacity={0.3} />
+              <text x={750} y={108} fill={colors.blue} fontSize={10} fontWeight={600} letterSpacing={1.5} opacity={0.8}>CORPORATE NETWORK</text>
+              <text x={750} y={120} fill={colors.textMuted} fontSize={8}>10.0.0.0/8 — Pushed via VPN routes</text>
+
+              <NodeBox x={750} y={135} w={145} h={50} label="Internal DNS" sublabel="10.0.1.53" icon="network" color={colors.blue} borderColor={colors.panelBorder} />
+              <NodeBox x={905} y={135} w={145} h={50} label="App Servers" sublabel="10.0.10.0/24" icon="server" color={colors.blue} borderColor={colors.panelBorder} />
+              <NodeBox x={750} y={200} w={145} h={50} label="File Servers" sublabel="10.0.20.0/24" icon="server" color={colors.blue} borderColor={colors.panelBorder} />
+              <NodeBox x={905} y={200} w={145} h={50} label="Databases" sublabel="10.0.30.0/24" icon="server" color={colors.blue} borderColor={colors.panelBorder} />
+              <NodeBox x={750} y={265} w={145} h={50} label="AD / LDAP" sublabel="Identity & Auth" icon="lock" color={colors.blue} borderColor={colors.panelBorder} />
+              <NodeBox x={905} y={265} w={145} h={50} label="Monitoring" sublabel="Logs & Alerts" icon="shield" color={colors.blue} borderColor={colors.panelBorder} />
+              <NodeBox x={750} y={335} w={300} h={50} label="SIEM / Log Aggregation" sublabel="VPN session logs, auth events, anomaly detection" icon="network" color={colors.blue} borderColor={colors.panelBorder} />
+
+              <AnimatedDash d="M 690 310 C 710 310, 720 200, 740 200" color={colors.blue} delay={0.5} />
+              <AnimatedDash d="M 690 340 C 710 340, 720 300, 740 300" color={colors.blue} delay={0.7} />
+              <AnimatedDash d="M 690 360 C 710 360, 720 360, 740 360" color={colors.blue} delay={0.9} />
+
+              <NodeBox x={460} y={450} w={230} h={70} label="PKI / Certificate Authority" sublabel="Easy-RSA | Per-device certs" icon="lock" color={colors.accent} borderColor={colors.panelBorder}>
+                <Badge x={476} y={498} text="CRL Management" color={colors.accent} />
+                <Badge x={590} y={498} text="OCSP" color={colors.accent} />
+              </NodeBox>
+
+              <AnimatedDash d="M 575 410 L 575 450" color={colors.accent} delay={1} />
+
+              <NodeBox x={460} y={555} w={230} h={75} label="Management Plane" sublabel="Admin Dashboard" icon="server" color={colors.accent} borderColor={colors.panelBorder}>
+                <text x={476} y={600} fill={colors.textMuted} fontSize={8.5}>• Client provisioning</text>
+                <text x={476} y={613} fill={colors.textMuted} fontSize={8.5}>• Cert lifecycle & revocation</text>
+              </NodeBox>
+
+              <AnimatedDash d="M 575 520 L 575 555" color={colors.accent} delay={1.2} />
+
+              {/* Future Regional Expansion */}
+              <rect x={730} y={440} width={330} height={160} rx={8} fill={colors.panelBorder} stroke={colors.textDim} strokeWidth={0.5} strokeDasharray="6 4" opacity={0.4} />
+              <text x={750} y={464} fill={colors.textDim} fontSize={10} fontWeight={600} letterSpacing={1.5}>FUTURE — REGIONAL EXPANSION</text>
+
+              <NodeBox x={750} y={480} w={145} h={50} label="VPN Node — EU" sublabel="Frankfurt" icon="cloud" color={colors.textDim} borderColor={colors.textDim} />
+              <NodeBox x={905} y={480} w={145} h={50} label="VPN Node — APAC" sublabel="Singapore" icon="cloud" color={colors.textDim} borderColor={colors.textDim} />
+
+              <text x={750} y={560} fill={colors.textDim} fontSize={8.5}>Site-to-site mesh back to central DC</text>
+              <text x={750} y={573} fill={colors.textDim} fontSize={8.5}>Reduces latency for regional users</text>
+
+              {/* Data Flow Labels */}
+              <g>
+                <rect x={460} y={680} width={600} height={48} rx={6} fill={colors.panel} stroke={colors.panelBorder} strokeWidth={0.5} />
+                <text x={476} y={698} fill={colors.accent} fontSize={9} fontWeight={600}>DATA FLOW</text>
+                <text x={476} y={716} fill={colors.textMuted} fontSize={8.5}>
+                  Client → TLS Tunnel → Firewall → OpenVPN Server → Route Decision → Corporate Network (10.0.0.0/8)
+                </text>
+                <text x={40} y={740} fill={colors.orange} fontSize={9} fontWeight={600}>SPLIT TUNNEL</text>
+                <text x={150} y={740} fill={colors.textMuted} fontSize={8.5}>
+                  Non-corporate traffic exits locally at the client — no hairpin through the DC
+                </text>
+              </g>
+
+              <circle cx={475} cy={268} r={4} fill={colors.accent}>
+                <animate attributeName="r" values="3;6;3" dur="2s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" />
+              </circle>
+            </svg>
+
+            {/* Bottom info cards */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginTop: 16 }}>
+              {[
+                { title: "Authentication", desc: "x.509 certificates + MFA/TOTP. Per-device certs via Easy-RSA PKI. LDAP/AD backend integration.", color: colors.accent, icon: "🔐" },
+                { title: "Split Tunnel", desc: "Push corporate routes only (10.0.0.0/8). Internet traffic breaks out locally. DNS split for internal domains.", color: colors.orange, icon: "🔀" },
+                { title: "Security Posture", desc: "Endpoint EDR required. Zero-trust internal ACLs. VPN clients are untrusted by default. SIEM logging.", color: colors.red, icon: "🛡" },
+                { title: "Scalability", desc: "~200-300 concurrent sessions per vCPU. Horizontal scale with regional nodes. Site-to-site mesh backhaul.", color: colors.blue, icon: "📈" },
+              ].map((card, i) => (
+                <div key={i} style={{
+                  background: colors.panel,
+                  border: `1px solid ${colors.panelBorder}`,
+                  borderRadius: 8,
+                  padding: "14px 16px",
+                  borderTop: `2px solid ${card.color}`,
+                }}>
+                  <div style={{ fontSize: 14, marginBottom: 6 }}>{card.icon} <span style={{ color: colors.text, fontSize: 12, fontWeight: 600 }}>{card.title}</span></div>
+                  <div style={{ color: colors.textMuted, fontSize: 10, lineHeight: 1.5 }}>{card.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<OpenVPNArchitecture />);
+  </script>
+</body>
+</html>
