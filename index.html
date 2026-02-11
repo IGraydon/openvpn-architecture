@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Centralised OpenVPN Architecture — 11 Global Sites — Network Diagram</title>
+  <meta name="description" content="Interactive network architecture diagram for a centralised OpenVPN solution with split tunnelling, 322 global users across 11 sites, hosted DC to AWS via 1 Gbps X-Connect."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    body{background:#0a0e1a;font-family:'JetBrains Mono','SF Mono','Fira Code',monospace}
+    #root{min-height:100vh}
+  </style>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+const { useState } = React;
+
+const C = {
+  bg:"#0a0e1a",bgS:"#111827",pan:"#1a2035",brd:"#2a3555",
+  acc:"#00d4aa",accD:"#00d4aa33",ora:"#ff8c42",oraD:"#ff8c4233",
+  blu:"#4a9eff",bluD:"#4a9eff33",pur:"#a78bfa",purD:"#a78bfa33",
+  red:"#f87171",yel:"#facc15",cya:"#22d3ee",pnk:"#f472b6",
+  txt:"#e2e8f0",mut:"#8892a8",dim:"#4a5568",
+  aws:"#FF9900",awsD:"#FF990022",ln:"#2a3555",
+};
+const RC={EMEA:C.pur,AMER:C.cya,APAC:C.pnk,INDIA:C.yel};
+
+const sites=[
+  {r:"EMEA",city:"London",co:"UK",u:26,t:"Aldermary (Own Office)"},
+  {r:"EMEA",city:"Manchester",co:"UK",u:60,t:"Serviced Office"},
+  {r:"AMER",city:"Boston",co:"US",u:6,t:"Serviced Office"},
+  {r:"AMER",city:"Dallas",co:"US",u:18,t:"Serviced Office"},
+  {r:"APAC",city:"Sydney",co:"AU",u:10,t:"Serviced Office"},
+  {r:"APAC",city:"Singapore",co:"SG",u:7,t:"Serviced Office"},
+  {r:"APAC",city:"Tokyo",co:"JP",u:2,t:"Serviced Office"},
+  {r:"APAC",city:"Kuala Lumpur",co:"MY",u:3,t:"Serviced Office"},
+  {r:"INDIA",city:"Gurgaon",co:"IN",u:86,t:"Serviced Office"},
+  {r:"INDIA",city:"Noida",co:"IN",u:42,t:"Serviced Office"},
+  {r:"INDIA",city:"Bangalore",co:"IN",u:62,t:"New Office"},
+];
+const total=sites.reduce((s,x)=>s+x.u,0);
+const maxU=Math.max(...sites.map(s=>s.u));
+const regs=["EMEA","AMER","APAC","INDIA"].map(n=>({n,c:RC[n],s:sites.filter(x=>x.r===n)}));
+
+const Ic=({type,x,y,sz=20,c=C.txt})=>{
+  const t=`translate(${x-sz/2},${y-sz/2})`;
+  if(type==="bld") return <g transform={t}><rect x={sz*.15} y={sz*.2} width={sz*.7} height={sz*.75} rx={1} fill="none" stroke={c} strokeWidth={1.5}/><rect x={sz*.3} y={sz*.35} width={sz*.15} height={sz*.12} rx={.5} fill={c} opacity={.4}/><rect x={sz*.55} y={sz*.35} width={sz*.15} height={sz*.12} rx={.5} fill={c} opacity={.4}/><rect x={sz*.3} y={sz*.55} width={sz*.15} height={sz*.12} rx={.5} fill={c} opacity={.4}/><rect x={sz*.55} y={sz*.55} width={sz*.15} height={sz*.12} rx={.5} fill={c} opacity={.4}/></g>;
+  if(type==="srv") return <g transform={t}><rect x={2} y={1} width={sz-4} height={sz*.3} rx={2} fill="none" stroke={c} strokeWidth={1.5}/><rect x={2} y={sz*.35} width={sz-4} height={sz*.3} rx={2} fill="none" stroke={c} strokeWidth={1.5}/><rect x={2} y={sz*.7} width={sz-4} height={sz*.3} rx={2} fill="none" stroke={c} strokeWidth={1.5}/><circle cx={sz*.75} cy={sz*.15} r={1.5} fill={c} opacity={.6}/><circle cx={sz*.75} cy={sz*.5} r={1.5} fill={c} opacity={.6}/><circle cx={sz*.75} cy={sz*.85} r={1.5} fill={c} opacity={.6}/></g>;
+  if(type==="shd") return <g transform={t}><path d={`M${sz/2} 2 L${sz-3} ${sz*.3} L${sz-3} ${sz*.6} C${sz-3} ${sz*.85} ${sz/2} ${sz-2} ${sz/2} ${sz-2} C${sz/2} ${sz-2} 3 ${sz*.85} 3 ${sz*.6} L3 ${sz*.3} Z`} fill="none" stroke={c} strokeWidth={1.5}/><path d={`M${sz*.35} ${sz*.5} L${sz*.45} ${sz*.62} L${sz*.65} ${sz*.38}`} fill="none" stroke={c} strokeWidth={1.5} strokeLinecap="round"/></g>;
+  if(type==="lck") return <g transform={t}><rect x={sz*.2} y={sz*.45} width={sz*.6} height={sz*.45} rx={2} fill="none" stroke={c} strokeWidth={1.5}/><path d={`M${sz*.3} ${sz*.45} V${sz*.3} C${sz*.3} ${sz*.1} ${sz*.7} ${sz*.1} ${sz*.7} ${sz*.3} V${sz*.45}`} fill="none" stroke={c} strokeWidth={1.5}/><circle cx={sz/2} cy={sz*.65} r={1.5} fill={c}/></g>;
+  if(type==="net") return <g transform={t}><circle cx={sz/2} cy={sz*.25} r={3} fill="none" stroke={c} strokeWidth={1.5}/><circle cx={sz*.2} cy={sz*.75} r={3} fill="none" stroke={c} strokeWidth={1.5}/><circle cx={sz*.8} cy={sz*.75} r={3} fill="none" stroke={c} strokeWidth={1.5}/><line x1={sz/2} y1={sz*.35} x2={sz*.2} y2={sz*.65} stroke={c} strokeWidth={1.2}/><line x1={sz/2} y1={sz*.35} x2={sz*.8} y2={sz*.65} stroke={c} strokeWidth={1.2}/></g>;
+  if(type==="glb") return <g transform={t}><circle cx={sz/2} cy={sz/2} r={sz/2-2} fill="none" stroke={c} strokeWidth={1.5}/><ellipse cx={sz/2} cy={sz/2} rx={sz*.22} ry={sz/2-2} fill="none" stroke={c} strokeWidth={1} opacity={.6}/><line x1={2} y1={sz/2} x2={sz-2} y2={sz/2} stroke={c} strokeWidth={1} opacity={.6}/></g>;
+  return null;
+};
+
+const AD=({d,c,dl=0,w=2})=><g><path d={d} fill="none" stroke={c} strokeWidth={1} opacity={.1}/><path d={d} fill="none" stroke={c} strokeWidth={w} strokeDasharray="6 8" opacity={.7}><animate attributeName="stroke-dashoffset" from="100" to="-100" dur="3s" begin={`${dl}s`} repeatCount="indefinite"/></path></g>;
+
+const Bg=({x,y,text,c,sm})=><g><rect x={x} y={y} width={text.length*(sm?5.5:6.5)+12} height={sm?15:18} rx={sm?7:9} fill={c} opacity={.15} stroke={c} strokeWidth={.5}/><text x={x+6} y={y+(sm?10.5:12.5)} fill={c} fontSize={sm?8:9} fontWeight={500} fontFamily="'JetBrains Mono',monospace">{text}</text></g>;
+
+const F="'JetBrains Mono','SF Mono',monospace";
+
+function App(){
+  const [hov,setHov]=useState(null);
+  const W=1280,H=1080;
+
+  return(
+  <div style={{background:C.bg,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:"24px 16px",fontFamily:F}}>
+  <div style={{maxWidth:1320,width:"100%"}}>
+    <div style={{marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:12}}>
+      <div>
+        <div style={{color:C.acc,fontSize:10,letterSpacing:3,textTransform:"uppercase",marginBottom:4}}>Network Architecture</div>
+        <h1 style={{color:C.txt,fontSize:22,fontWeight:700,margin:0}}>Centralised OpenVPN Solution</h1>
+        <p style={{color:C.mut,fontSize:11,margin:"4px 0 0"}}>Split Tunnel — {total} Global Users — 11 Sites — Hosted DC → AWS</p>
+      </div>
+      <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+        {[{c:C.acc,l:"VPN Tunnel"},{c:C.ora,l:"Local Breakout"},{c:C.aws,l:"DC → AWS (1 Gbps X-Connect)"},{c:C.blu,l:"Corp Traffic"}].map((x,i)=>
+          <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
+            <div style={{width:20,height:3,background:x.c,borderRadius:2}}/>
+            <span style={{color:C.mut,fontSize:9.5}}>{x.l}</span>
+          </div>
+        )}
+      </div>
+    </div>
+
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{background:C.bgS,borderRadius:12,border:`1px solid ${C.brd}`}}>
+      <defs>
+        <pattern id="g" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke={C.ln} strokeWidth={.3} opacity={.3}/></pattern>
+      </defs>
+      <rect width={W} height={H} fill="url(#g)"/>
+
+      {/* ══ LEFT: REMOTE OFFICES ══ */}
+      <rect x={15} y={15} width={370} height={H-30} rx={12} fill={C.purD} stroke={C.pur} strokeWidth={.5} strokeDasharray="4 4" opacity={.25}/>
+      <text x={30} y={42} fill={C.txt} fontSize={12} fontWeight={700} letterSpacing={2}>REMOTE OFFICES</text>
+      <text x={30} y={56} fill={C.mut} fontSize={8.5}>{total} users • 11 sites • OpenVPN Client on each device</text>
+
+      {(()=>{
+        let y=70; const el=[];
+        regs.forEach((reg,ri)=>{
+          const ru=reg.s.reduce((a,b)=>a+b.u,0);
+          el.push(<g key={`rh${ri}`}><rect x={25} y={y} width={350} height={20} rx={4} fill={reg.c} opacity={.08}/><text x={35} y={y+14} fill={reg.c} fontSize={10} fontWeight={700} letterSpacing={2}>{reg.n}</text><text x={285} y={y+14} fill={reg.c} fontSize={9} fontWeight={600} textAnchor="end">{ru} users</text><Bg x={290} y={y+2} text={`${reg.s.length} sites`} c={reg.c} sm/></g>);
+          y+=24;
+          reg.s.forEach((site,si)=>{
+            const sy=y, isH=hov===`${ri}-${si}`;
+            el.push(
+              <g key={`s${ri}${si}`} onMouseEnter={()=>setHov(`${ri}-${si}`)} onMouseLeave={()=>setHov(null)} style={{cursor:"default"}}>
+                <rect x={30} y={sy} width={340} height={48} rx={6} fill={isH?reg.c:C.pan} fillOpacity={isH?.12:.95} stroke={isH?reg.c:C.brd} strokeWidth={isH?1.5:1}/>
+                <Ic type="bld" x={48} y={sy+16} sz={18} c={reg.c}/>
+                <text x={64} y={sy+15} fill={C.txt} fontSize={10} fontWeight={600} fontFamily={F}>{site.city}, {site.co}</text>
+                <text x={64} y={sy+27} fill={C.mut} fontSize={7.5}>{site.t}</text>
+                <rect x={293} y={sy+6} width={66} height={20} rx={10} fill={reg.c} opacity={.15} stroke={reg.c} strokeWidth={.5}/>
+                <text x={306} y={sy+20} fill={reg.c} fontSize={10} fontWeight={700}>{site.u}</text>
+                <text x={326} y={sy+19} fill={reg.c} fontSize={7} opacity={.7}>users</text>
+                {/* mini bar */}
+                <rect x={64} y={sy+35} width={200} height={3} rx={1.5} fill={reg.c} opacity={.1}/>
+                <rect x={64} y={sy+35} width={(site.u/maxU)*200} height={3} rx={1.5} fill={reg.c} opacity={.5}/>
+                <text x={270} y={sy+39} fill={C.dim} fontSize={6.5}>{Math.round(site.u/total*100)}%</text>
+              </g>
+            );
+            y+=52;
+          });
+          y+=6;
+        });
+        // split tunnel box
+        el.push(<g key="st"><rect x={30} y={y+2} width={340} height={46} rx={6} fill={C.pan} stroke={C.ora} strokeWidth={1} strokeDasharray="4 3"/><Ic type="net" x={48} y={y+18} sz={16} c={C.ora}/><text x={64} y={y+17} fill={C.ora} fontSize={9} fontWeight={600}>Split Tunnel Configuration</text><text x={64} y={y+30} fill={C.mut} fontSize={7.5}>→ Corporate (10.0.0.0/8) → Tunnel | → Internet → Local breakout</text><text x={64} y={y+40} fill={C.dim} fontSize={7}>No hairpin — SaaS/web exits at each office directly</text></g>);
+        // breakout arrows
+        let ay=70+24;
+        regs.forEach(reg=>{reg.s.forEach((_,i)=>{el.push(<AD key={`bo${ay}`} d={`M 28 ${ay+24} L 14 ${ay+24}`} c={C.ora} dl={i*.3} w={1.5}/>);ay+=52;});ay+=6;});
+        return el;
+      })()}
+
+      {/* ══ INTERNET ══ */}
+      <rect x={410} y={55} width={55} height={H-110} rx={6} fill="none" stroke={C.ora} strokeWidth={.5} strokeDasharray="3 3" opacity={.3}/>
+      <Ic type="glb" x={437} y={44} sz={18} c={C.ora}/>
+      <text x={437} y={78} fill={C.ora} fontSize={8} fontWeight={600} textAnchor="middle" opacity={.7}>PUBLIC</text>
+      <text x={437} y={89} fill={C.ora} fontSize={8} fontWeight={600} textAnchor="middle" opacity={.7}>INTERNET</text>
+
+      {/* Tunnel lines */}
+      {(()=>{
+        const el=[]; let ay=70+24+24, idx=0;
+        regs.forEach(reg=>{reg.s.forEach(()=>{
+          el.push(<g key={`tn${idx}`}><AD d={`M 370 ${ay} L 411 ${ay}`} c={C.acc} dl={idx*.12} w={1.5}/><AD d={`M 464 ${ay} C 490 ${ay},510 ${430},535 ${430}`} c={C.acc} dl={idx*.12+.1} w={1.5}/></g>);
+          ay+=52; idx++;
+        });ay+=6;});
+        return el;
+      })()}
+      <g transform="translate(433,140) rotate(-90)"><rect x={-2} y={-9} width={50} height={14} rx={3} fill={C.acc} opacity={.15}/><text x={6} y={2} fill={C.acc} fontSize={7} fontWeight={600}>TLS 1.3</text></g>
+
+      {/* ══ HOSTED DC ══ */}
+      <rect x={505} y={15} width={340} height={H-30} rx={12} fill={C.accD} stroke={C.acc} strokeWidth={.5} strokeDasharray="4 4" opacity={.3}/>
+      <text x={525} y={42} fill={C.acc} fontSize={11} fontWeight={700} letterSpacing={2}>HOSTED DC / CLOUD</text>
+      <text x={525} y={56} fill={C.mut} fontSize={8.5}>Central VPN Hub — Private Infrastructure</text>
+
+      {/* Firewall */}
+      <rect x={530} y={72} width={290} height={45} rx={8} fill={C.pan} stroke={C.brd} strokeWidth={1.5}/>
+      <Ic type="lck" x={548} y={90} sz={18} c={C.red}/>
+      <text x={564} y={90} fill={C.txt} fontSize={10} fontWeight={600}>Firewall / ACL</text>
+      <text x={564} y={103} fill={C.mut} fontSize={8}>iptables / nftables — Stateful Inspection</text>
+      <AD d="M 675 117 L 675 130" c={C.acc} dl={0}/>
+
+      {/* Core Switch */}
+      <rect x={608} y={130} width={134} height={40} rx={6} fill={C.pan} stroke={C.acc} strokeWidth={1.5}/>
+      {/* switch icon - inline */}
+      <g transform="translate(618,138)">
+        <rect x={0} y={2} width={22} height={14} rx={2} fill="none" stroke={C.acc} strokeWidth={1.5}/>
+        <circle cx={6} cy={9} r={1.5} fill={C.acc} opacity={.7}/><circle cx={11} cy={9} r={1.5} fill={C.acc} opacity={.7}/><circle cx={16} cy={9} r={1.5} fill={C.acc} opacity={.7}/>
+        <line x1={4} y1={2} x2={4} y2={0} stroke={C.acc} strokeWidth={1}/><line x1={11} y1={2} x2={11} y2={0} stroke={C.acc} strokeWidth={1}/><line x1={18} y1={2} x2={18} y2={0} stroke={C.acc} strokeWidth={1}/>
+        <line x1={4} y1={16} x2={4} y2={18} stroke={C.acc} strokeWidth={1}/><line x1={11} y1={16} x2={11} y2={18} stroke={C.acc} strokeWidth={1}/><line x1={18} y1={16} x2={18} y2={18} stroke={C.acc} strokeWidth={1}/>
+      </g>
+      <text x={646} y={148} fill={C.txt} fontSize={9} fontWeight={600}>Core Switch</text>
+      <text x={646} y={160} fill={C.mut} fontSize={7.5}>L3 • VLAN trunk</text>
+
+      {/* Switch → OpenVPN Server (down-left) */}
+      <AD d="M 650 170 L 650 180" c={C.acc} dl={0.2}/>
+
+      {/* Switch → X-Connect (down-right, to DC-AWS box) */}
+      <AD d="M 730 170 L 730 575" c={C.aws} dl={0.4} w={2.5}/>
+      <rect x={717} y={360} width={48} height={16} rx={4} fill={C.aws} opacity={.15} stroke={C.aws} strokeWidth={.5}/>
+      <text x={722} y={371} fill={C.aws} fontSize={6.5} fontWeight={600}>1 Gbps</text>
+      <g transform="translate(726,320) rotate(-90)"><text x={0} y={0} fill={C.aws} fontSize={6} opacity={.6}>X-Connect</text></g>
+
+      {/* OpenVPN Server */}
+      <rect x={528} y={180} width={194} height={168} rx={10} fill={C.acc} opacity={.06}/>
+      <rect x={530} y={182} width={190} height={164} rx={8} fill={C.pan} stroke={C.acc} strokeWidth={1.5}/>
+      <Ic type="shd" x={548} y={202} sz={20} c={C.acc}/>
+      <text x={566} y={201} fill={C.txt} fontSize={11} fontWeight={700}>OpenVPN Access Server</text>
+      <text x={566} y={214} fill={C.mut} fontSize={8}>Concentrator VM (t3.xlarge)</text>
+      <Bg x={545} y={222} text="UDP/1194" c={C.acc}/>
+      <Bg x={626} y={222} text="TCP/443" c={C.acc}/>
+      <text x={545} y={250} fill={C.mut} fontSize={7.5}>• x.509 Cert Auth (Easy-RSA)</text>
+      <text x={545} y={261} fill={C.mut} fontSize={7.5}>• MFA / TOTP / SAML</text>
+      <text x={545} y={272} fill={C.mut} fontSize={7.5}>• Split Tunnel push routes</text>
+      <text x={545} y={283} fill={C.mut} fontSize={7.5}>• 11 site CCD profiles</text>
+      <text x={545} y={294} fill={C.mut} fontSize={7.5}>• Groups: EMEA/AMER/APAC/IN</text>
+      <text x={545} y={310} fill={C.dim} fontSize={7}>10.8.0.0/16 • ~{Math.round(total*.5)} concurrent</text>
+      <Bg x={545} y={322} text={`${total} users`} c={C.acc}/>
+      <circle cx={540} cy={198} r={4} fill={C.acc}><animate attributeName="r" values="3;6;3" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;.3;1" dur="2s" repeatCount="indefinite"/></circle>
+
+      {/* PKI */}
+      <AD d="M 625 346 L 625 362" c={C.acc} dl={1}/>
+      <rect x={530} y={362} width={190} height={45} rx={8} fill={C.pan} stroke={C.brd} strokeWidth={1}/>
+      <Ic type="lck" x={548} y={380} sz={16} c={C.acc}/>
+      <text x={564} y={380} fill={C.txt} fontSize={9.5} fontWeight={600}>PKI / Certificate Authority</text>
+      <text x={564} y={393} fill={C.mut} fontSize={7.5}>Easy-RSA • {total} certs • CRL/OCSP</text>
+
+      {/* Management */}
+      <AD d="M 625 407 L 625 420" c={C.acc} dl={1.2}/>
+      <rect x={530} y={420} width={190} height={45} rx={8} fill={C.pan} stroke={C.brd} strokeWidth={1}/>
+      <Ic type="srv" x={548} y={438} sz={16} c={C.acc}/>
+      <text x={564} y={438} fill={C.txt} fontSize={9.5} fontWeight={600}>Management Plane</text>
+      <text x={564} y={451} fill={C.mut} fontSize={7.5}>Admin • Provisioning • Revocation</text>
+
+      {/* SIEM */}
+      <AD d="M 625 465 L 625 478" c={C.acc} dl={1.4}/>
+      <rect x={530} y={478} width={190} height={45} rx={8} fill={C.pan} stroke={C.brd} strokeWidth={1}/>
+      <Ic type="net" x={548} y={496} sz={16} c={C.blu}/>
+      <text x={564} y={496} fill={C.txt} fontSize={9.5} fontWeight={600}>SIEM / Monitoring</text>
+      <text x={564} y={509} fill={C.mut} fontSize={7.5}>Logs • Auth events • Alerts</text>
+
+      {/* AD/LDAP */}
+      <rect x={530} y={538} width={190} height={40} rx={8} fill={C.pan} stroke={C.brd} strokeWidth={1}/>
+      <Ic type="lck" x={548} y={554} sz={16} c={C.blu}/>
+      <text x={564} y={554} fill={C.txt} fontSize={9.5} fontWeight={600}>AD / LDAP / Identity</text>
+      <text x={564} y={566} fill={C.mut} fontSize={7.5}>Directory & group policy</text>
+
+      {/* DC → AWS X-Connect box */}
+      <rect x={530} y={598} width={290} height={58} rx={8} fill={C.awsD} stroke={C.aws} strokeWidth={1.5}/>
+      <text x={548} y={616} fill={C.aws} fontSize={11} fontWeight={700}>DC → AWS X-Connect</text>
+      <text x={548} y={629} fill={C.mut} fontSize={8}>Private Peering — Dedicated 1 Gbps Link</text>
+      <Bg x={548} y={636} text="1 Gbps" c={C.aws}/>
+      <Bg x={618} y={636} text="X-Connect" c={C.aws}/>
+      <Bg x={710} y={636} text="BGP" c={C.aws} sm/>
+
+      {/* Single X-Connect line DC → AWS */}
+      <AD d="M 820 627 L 868 627" c={C.aws} dl={0} w={4}/>
+      <rect x={832} y={612} width={48} height={14} rx={4} fill={C.aws} opacity={.15} stroke={C.aws} strokeWidth={.5}/>
+      <text x={838} y={622} fill={C.aws} fontSize={6.5} fontWeight={700}>1 Gbps</text>
+
+      {/* IP Allocation Table */}
+      <rect x={530} y={670} width={290} height={218} rx={8} fill={C.pan} stroke={C.brd} strokeWidth={1}/>
+      <text x={545} y={689} fill={C.txt} fontSize={9} fontWeight={600}>VPN IP Allocation by Site</text>
+      {(()=>{
+        const el=[]; let ty=705;
+        el.push(<g key="ah"><text x={545} y={ty} fill={C.dim} fontSize={7} fontWeight={600}>SITE</text><text x={680} y={ty} fill={C.dim} fontSize={7} fontWeight={600}>SUBNET</text><text x={775} y={ty} fill={C.dim} fontSize={7} fontWeight={600}>N</text></g>);
+        el.push(<line key="al" x1={545} y1={ty+3} x2={805} y2={ty+3} stroke={C.brd} strokeWidth={.5}/>);
+        ty+=14;
+        const alloc=[["London","10.8.1.0/24",26],["Manchester","10.8.2.0/24",60],["Boston","10.8.3.0/24",6],["Dallas","10.8.4.0/24",18],["Sydney","10.8.5.0/24",10],["Singapore","10.8.6.0/24",7],["Tokyo","10.8.7.0/24",2],["K. Lumpur","10.8.8.0/24",3],["Gurgaon","10.8.9.0/24",86],["Noida","10.8.10.0/24",42],["Bangalore","10.8.11.0/24",62]];
+        alloc.forEach(([s,sn,u],i)=>{
+          const so=sites.find(x=>x.city.startsWith(s.replace("K. ","Kuala ")));
+          el.push(<g key={`al${i}`}><text x={545} y={ty} fill={RC[so?.r||"EMEA"]} fontSize={7.5}>{s}</text><text x={680} y={ty} fill={C.mut} fontSize={7.5}>{sn}</text><text x={780} y={ty} fill={C.dim} fontSize={7.5} textAnchor="middle">{u}</text></g>);
+          ty+=14;
+        });
+        el.push(<g key="at"><line x1={545} y1={ty-4} x2={805} y2={ty-4} stroke={C.brd} strokeWidth={.5}/><text x={545} y={ty+7} fill={C.acc} fontSize={8} fontWeight={700}>TOTAL</text><text x={680} y={ty+7} fill={C.acc} fontSize={7.5}>10.8.0.0/16</text><text x={780} y={ty+7} fill={C.acc} fontSize={8} fontWeight={700} textAnchor="middle">{total}</text></g>);
+        return el;
+      })()}
+
+      {/* ══ AWS CLOUD ══ */}
+      <rect x={868} y={15} width={397} height={H-30} rx={12} fill={C.awsD} stroke={C.aws} strokeWidth={.5} strokeDasharray="4 4" opacity={.4}/>
+      <text x={888} y={42} fill={C.aws} fontSize={11} fontWeight={700} letterSpacing={2}>AWS CLOUD</text>
+      <text x={888} y={56} fill={C.mut} fontSize={8.5}>Production Workloads — Main Application Hosts</text>
+
+      <rect x={883} y={68} width={367} height={530} rx={8} fill={C.bluD} stroke={C.blu} strokeWidth={.5} opacity={.3}/>
+      <text x={903} y={88} fill={C.blu} fontSize={9} fontWeight={600} letterSpacing={1.5}>VPC — 10.0.0.0/16</text>
+
+      {[
+        {y:100,l:"Application Servers",s:"EC2 / ECS — 10.0.10.0/24",ic:"srv"},
+        {y:158,l:"Database Tier",s:"RDS / Aurora — 10.0.20.0/24",ic:"srv"},
+        {y:216,l:"File Storage",s:"EFS / S3 — 10.0.30.0/24",ic:"srv"},
+        {y:274,l:"Internal DNS",s:"Route 53 Private — 10.0.1.53",ic:"net"},
+        {y:332,l:"Monitoring & Logging",s:"CloudWatch / CloudTrail",ic:"shd"},
+        {y:390,l:"Identity & Access",s:"IAM / SSO / Directory Service",ic:"lck"},
+        {y:448,l:"Container Platform",s:"EKS / Fargate — 10.0.40.0/24",ic:"srv"},
+        {y:506,l:"CI/CD Pipeline",s:"CodePipeline / CodeBuild",ic:"net"},
+      ].map((svc,i)=>
+        <g key={`aw${i}`}>
+          <rect x={893} y={svc.y} width={347} height={48} rx={6} fill={C.pan} stroke={C.brd} strokeWidth={1}/>
+          <Ic type={svc.ic} x={912} y={svc.y+18} sz={16} c={C.blu}/>
+          <text x={928} y={svc.y+18} fill={C.txt} fontSize={9.5} fontWeight={600}>{svc.l}</text>
+          <text x={928} y={svc.y+32} fill={C.mut} fontSize={8}>{svc.s}</text>
+        </g>
+      )}
+
+      {/* AWS Gateway */}
+      <rect x={883} y={610} width={367} height={50} rx={8} fill={C.pan} stroke={C.aws} strokeWidth={1.5}/>
+      <text x={903} y={632} fill={C.aws} fontSize={10} fontWeight={700}>AWS Direct Connect Endpoint</text>
+      <text x={903} y={645} fill={C.mut} fontSize={8}>1 Gbps X-Connect • Virtual Private Gateway</text>
+      <Bg x={1160} y={622} text="HA" c={C.aws} sm/>
+
+      {/* DC → AWS: Single 1 Gbps X-Connect — line is on the DC-AWS box */}
+
+      {/* Stats Panel */}
+      <rect x={883} y={680} width={367} height={200} rx={8} fill={C.pan} stroke={C.brd} strokeWidth={.5}/>
+      <text x={903} y={700} fill={C.txt} fontSize={10} fontWeight={600}>User Distribution by Region</text>
+      {(()=>{
+        const el=[]; let by=715;
+        regs.forEach((reg,i)=>{
+          const ru=reg.s.reduce((a,b)=>a+b.u,0), pct=Math.round(ru/total*100), bw=(ru/total)*240;
+          el.push(<g key={`st${i}`}><text x={903} y={by+11} fill={reg.c} fontSize={9} fontWeight={600} width={60}>{reg.n}</text><rect x={970} y={by+1} width={240} height={13} rx={3} fill={reg.c} opacity={.1}/><rect x={970} y={by+1} width={bw} height={13} rx={3} fill={reg.c} opacity={.5}/><text x={970+bw+5} y={by+11} fill={reg.c} fontSize={8.5} fontWeight={600}>{ru} ({pct}%)</text></g>);
+          by+=24;
+        });
+        el.push(<g key="stt"><line x1={903} y1={by} x2={1230} y2={by} stroke={C.brd} strokeWidth={.5}/><text x={903} y={by+15} fill={C.acc} fontSize={10} fontWeight={700}>TOTAL</text><text x={970} y={by+15} fill={C.acc} fontSize={10} fontWeight={700}>{total} users</text><text x={1090} y={by+15} fill={C.mut} fontSize={8}>Est. concurrent: ~{Math.round(total*.5)}</text></g>);
+        by+=30;
+        [{l:"Peak Concurrent",v:`~${Math.round(total*.5)}`,s:"50% ratio"},{l:"Recommended VM",v:"4-8 vCPU",s:"t3.xlarge"},{l:"Largest Site",v:"Gurgaon (86)",s:`${Math.round(86/total*100)}% of users`},{l:"India Total",v:"190 users",s:"Consider regional node"}].forEach((m,i)=>{
+          const mx=903+(i%2)*190, my=by+Math.floor(i/2)*36;
+          el.push(<g key={`m${i}`}><text x={mx} y={my} fill={C.dim} fontSize={7} letterSpacing={1}>{m.l.toUpperCase()}</text><text x={mx} y={my+13} fill={C.txt} fontSize={10} fontWeight={700}>{m.v}</text><text x={mx} y={my+23} fill={C.mut} fontSize={7}>{m.s}</text></g>);
+        });
+        return el;
+      })()}
+
+      {/* Bottom flow bar */}
+      <rect x={15} y={H-40} width={W-30} height={28} rx={6} fill={C.pan} stroke={C.brd} strokeWidth={.5}/>
+      <text x={30} y={H-21} fill={C.acc} fontSize={8} fontWeight={600}>DATA FLOW</text>
+      <text x={100} y={H-21} fill={C.mut} fontSize={7.5}>Client → TLS Tunnel → Firewall → Core Switch → OpenVPN Server → Switch → 1 Gbps X-Connect → AWS Hosts (10.0.0.0/16)</text>
+      <text x={920} y={H-21} fill={C.ora} fontSize={8} fontWeight={600}>SPLIT TUNNEL</text>
+      <text x={1010} y={H-21} fill={C.mut} fontSize={7.5}>Internet / SaaS → local breakout at each office</text>
+    </svg>
+
+    {/* Bottom cards */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(210px, 1fr))",gap:12,marginTop:16}}>
+      {[
+        {t:"Authentication",d:`x.509 certs for ${total} devices + MFA/TOTP. Per-site client groups. LDAP/AD integration.`,c:C.acc,i:"🔐"},
+        {t:"Split Tunnel",d:"Corporate routes (10.0.0.0/8) via tunnel. Internet & SaaS break out locally at each of the 11 offices.",c:C.ora,i:"🔀"},
+        {t:"DC → AWS",d:"Single 1 Gbps X-Connect private peering from hosted DC to AWS VPC. Dedicated physical cross-connect, no internet transit. All production workloads in AWS.",c:C.aws,i:"☁️"},
+        {t:"India (190 users)",d:"59% of all users across Gurgaon, Noida & Bangalore. Consider future regional VPN node in Mumbai.",c:C.yel,i:"🇮🇳"},
+        {t:"Security",d:"EDR on all endpoints. Zero-trust ACLs. VPN clients untrusted by default. Centralised SIEM logging.",c:C.red,i:"🛡"},
+      ].map((c,i)=>
+        <div key={i} style={{background:C.pan,border:`1px solid ${C.brd}`,borderRadius:8,padding:"14px 16px",borderTop:`2px solid ${c.c}`}}>
+          <div style={{fontSize:14,marginBottom:6}}>{c.i} <span style={{color:C.txt,fontSize:12,fontWeight:600}}>{c.t}</span></div>
+          <div style={{color:C.mut,fontSize:10,lineHeight:1.5}}>{c.d}</div>
+        </div>
+      )}
+    </div>
+  </div>
+  </div>);
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+  </script>
+</body>
+</html>
